@@ -294,7 +294,7 @@ public:
      @param timeout The time to spend on solving
      @param count The number of runs to combine the paths of, in an attempt to generate better quality paths
   */
-  bool solve(double timeout, unsigned int count);
+  bool solve(double timeout, unsigned int count, ompl::base::PlannerStatus* plannerStatus=nullptr);
 
   /* @brief Benchmark the planning problem. Return true on successful saving of benchmark results
      @param timeout The time to spend on solving

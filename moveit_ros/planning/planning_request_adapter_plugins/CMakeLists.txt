@@ -4,6 +4,7 @@ set(SOURCE_FILES
   src/empty.cpp
   src/fix_start_state_bounds.cpp
   src/fix_start_state_collision.cpp
+  src/aivot_fix_start_state_collision.cpp
   src/fix_start_state_path_constraints.cpp
   src/fix_workspace_bounds.cpp
   src/add_time_parameterization.cpp
