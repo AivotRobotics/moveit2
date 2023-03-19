@@ -1,6 +1,6 @@
 #include <moveit/planning_request_adapter/planning_request_adapter.h>
 #include <class_loader/class_loader.hpp>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/collision_detection_acl/collision_env_acl.h>
 
