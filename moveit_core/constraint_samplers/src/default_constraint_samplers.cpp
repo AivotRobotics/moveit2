@@ -37,6 +37,7 @@
 #include <moveit/constraint_samplers/default_constraint_samplers.h>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
+//#include <moveit/profiler/profiler.h>
 #include <cassert>
 #include <functional>
 
@@ -434,6 +435,7 @@ bool IKConstraintSampler::loadIKSolver()
 bool IKConstraintSampler::samplePose(Eigen::Vector3d& pos, Eigen::Quaterniond& quat, const moveit::core::RobotState& ks,
                                      unsigned int max_attempts)
 {
+//  moveit::tools::Profiler::ScopedBlock sblock("IKConstraintSampler::samplePose");
   if (ks.dirtyLinkTransforms())
   {
     // samplePose below requires accurate transforms
@@ -567,6 +569,7 @@ void samplingIkCallbackFnAdapter(moveit::core::RobotState* state, const moveit::
   else
   {
     error_code.val = moveit_msgs::msg::MoveItErrorCodes::NO_IK_SOLUTION;
+//    moveit::tools::Profiler::Event("IKConstraintSampler::invalidGroupState");
   }
 }
 }  // namespace
@@ -657,6 +660,7 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
                                  const kinematics::KinematicsBase::IKCallbackFn& adapted_ik_validity_callback,
                                  double timeout, moveit::core::RobotState& state, bool use_as_seed)
 {
+//  moveit::tools::Profiler::ScopedBlock sblock("IKConstraintSampler::callIK");
   const std::vector<size_t>& ik_joint_bijection = jmg_->getKinematicsSolverJointBijection();
   std::vector<double> seed(ik_joint_bijection.size(), 0.0);
   std::vector<double> vals;
@@ -688,7 +692,11 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
       solution[ik_joint_bijection[i]] = ik_sol[i];
     state.setJointGroupPositions(jmg_, solution);
 
-    return validate(state);
+    bool valid = validate(state);
+//    if(!valid) {
+//        moveit::tools::Profiler::Event("IKConstraintSampler::invalidIK");
+//    }
+    return valid;
   }
   else
   {
@@ -703,6 +711,7 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
       RCLCPP_INFO(LOGGER, "IK failed");
     }
   }
+//  moveit::tools::Profiler::Event("IKConstraintSampler::noIK");
   return false;
 }
 

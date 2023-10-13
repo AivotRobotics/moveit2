@@ -49,6 +49,7 @@
 #include <math.h>
 #include <memory>
 #include <typeinfo>
+//#include <moveit/profiler/profiler.h>
 
 #include <rclcpp/clock.hpp>
 #include <rclcpp/duration.hpp>
@@ -316,6 +317,10 @@ ConstraintEvaluationResult JointConstraint::decide(const moveit::core::RobotStat
                 result ? "satisfied" : "violated", joint_variable_name_.c_str(), current_joint_position,
                 joint_position_, joint_tolerance_above_, joint_tolerance_below_);
   }
+
+//  if(!result) {
+//      moveit::tools::Profiler::Event("JointConstraint::invalid");
+//  }
   return ConstraintEvaluationResult(result, constraint_weight_ * fabs(dif));
 }
 
@@ -497,6 +502,7 @@ bool PositionConstraint::equal(const KinematicConstraint& other, double margin) 
 // helper function to avoid code duplication
 static inline ConstraintEvaluationResult finishPositionConstraintDecision(const Eigen::Vector3d& pt,
                                                                           const Eigen::Vector3d& desired,
+                                                                          const std::vector<double>& dims,
                                                                           const std::string& name, double weight,
                                                                           bool result, bool verbose)
 {
@@ -505,11 +511,14 @@ static inline ConstraintEvaluationResult finishPositionConstraintDecision(const 
   double dz = desired.z() - pt.z();
   if (verbose)
   {
-    RCLCPP_INFO(LOGGER, "Position constraint %s on link '%s'. Desired: %f, %f, %f, current: %f, %f, %f",
-                result ? "satisfied" : "violated", name.c_str(), desired.x(), desired.y(), desired.z(), pt.x(), pt.y(),
-                pt.z());
-    RCLCPP_INFO(LOGGER, "Differences %g %g %g", dx, dy, dz);
+    RCLCPP_INFO(LOGGER, "Position constraint %s on link '%s'. Desired: x=%.3f, y=%.3f, z=%.3f, current: x=%.3f, y=%.3f, z=%.3f, "
+                        "differences: x=%.3g, y=%.3g, z=%.3g, tolerances: x=%.3g, y=%.3g, z=%.3g",
+                        result ? "satisfied" : "violated", name.c_str(), desired.x(), desired.y(), desired.z(), pt.x(), pt.y(), pt.z(), dx, dy, dz, dims[0], dims[1], dims[2]);
+//    RCLCPP_INFO(LOGGER, "Differences %g %g %g", dx, dy, dz);
   }
+//  if(!result) {
+//      moveit::tools::Profiler::Event("PositionConstraint::invalid");
+//  }
   return ConstraintEvaluationResult(result, weight * sqrt(dx * dx + dy * dy + dz * dz));
 }
 
@@ -527,12 +536,12 @@ ConstraintEvaluationResult PositionConstraint::decide(const moveit::core::RobotS
       bool result = constraint_region_[i]->cloneAt(tmp)->containsPoint(pt, verbose);
       if (result || (i + 1 == constraint_region_pose_.size()))
       {
-        return finishPositionConstraintDecision(pt, tmp.translation(), link_model_->getName(), constraint_weight_,
+        return finishPositionConstraintDecision(pt, tmp.translation(), constraint_region_[i]->getDimensions(), link_model_->getName(), constraint_weight_,
                                                 result, verbose);
       }
       else
       {
-        finishPositionConstraintDecision(pt, tmp.translation(), link_model_->getName(), constraint_weight_, result,
+        finishPositionConstraintDecision(pt, tmp.translation(), constraint_region_[i]->getDimensions(), link_model_->getName(), constraint_weight_, result,
                                          verbose);
       }
     }
@@ -544,12 +553,12 @@ ConstraintEvaluationResult PositionConstraint::decide(const moveit::core::RobotS
       bool result = constraint_region_[i]->containsPoint(pt, true);
       if (result || (i + 1 == constraint_region_.size()))
       {
-        return finishPositionConstraintDecision(pt, constraint_region_[i]->getPose().translation(),
+        return finishPositionConstraintDecision(pt, constraint_region_[i]->getPose().translation(), constraint_region_[i]->getDimensions(),
                                                 link_model_->getName(), constraint_weight_, result, verbose);
       }
       else
       {
-        finishPositionConstraintDecision(pt, constraint_region_[i]->getPose().translation(), link_model_->getName(),
+        finishPositionConstraintDecision(pt, constraint_region_[i]->getPose().translation(), constraint_region_[i]->getDimensions(), link_model_->getName(),
                                          constraint_weight_, result, verbose);
       }
     }
@@ -769,6 +778,10 @@ ConstraintEvaluationResult OrientationConstraint::decide(const moveit::core::Rob
                 q_des.w(), q_act.x(), q_act.y(), q_act.z(), q_act.w(), xyz_rotation(0), xyz_rotation(1),
                 xyz_rotation(2), absolute_x_axis_tolerance_, absolute_y_axis_tolerance_, absolute_z_axis_tolerance_);
   }
+
+//  if(!result) {
+//    moveit::tools::Profiler::Event("OrientationConstraint::invalid");
+//  }
 
   return ConstraintEvaluationResult(result, constraint_weight_ * (xyz_rotation(0) + xyz_rotation(1) + xyz_rotation(2)));
 }

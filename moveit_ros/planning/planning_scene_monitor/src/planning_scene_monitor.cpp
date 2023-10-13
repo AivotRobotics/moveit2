@@ -439,11 +439,17 @@ void PlanningSceneMonitor::scenePublishingThread()
             if (octomap_monitor_)
               lock = octomap_monitor_->getOcTreePtr()->reading();
             scene_->getPlanningSceneDiffMsg(msg);
-            if (new_scene_update_ == UPDATE_STATE)
-            {
-              msg.robot_state.attached_collision_objects.clear();
-              msg.robot_state.is_diff = true;
-            }
+            // always send robot_state as full update (for now).
+            // getPlanningSceneDiffMsg may add entries to the sceneMsg based
+            // on current (full) robot_state and world_diff, and this can
+            // happen irrespective of new_scene_update_. Clearing
+            // attached_collision_objects and sending robot_state as diff will
+            // cause these changes to be lost.
+            // if (new_scene_update_ == UPDATE_STATE)
+            // {
+            //   msg.robot_state.attached_collision_objects.clear();
+            //   msg.robot_state.is_diff = true;
+            // }
           }
           std::scoped_lock prevent_shape_cache_updates(shape_handles_lock_);  // we don't want the
                                                                               // transform cache to
