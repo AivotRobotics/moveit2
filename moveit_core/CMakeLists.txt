@@ -55,6 +55,7 @@ include(ConfigExtras.cmake)
 
 add_subdirectory(collision_detection_bullet)
 add_subdirectory(collision_detection_fcl)
+add_subdirectory(collision_detection_acl)
 add_subdirectory(collision_detection)
 add_subdirectory(collision_distance_field)
 add_subdirectory(constraint_samplers)
@@ -114,6 +115,7 @@ install(
     moveit_collision_detection
     moveit_collision_detection_bullet
     moveit_collision_detection_fcl
+    moveit_collision_detection_acl
     moveit_collision_distance_field
     moveit_constraint_samplers
     moveit_distance_field
@@ -175,6 +177,7 @@ ament_export_dependencies(
 
 # Plugin exports
 pluginlib_export_plugin_description_file(moveit_core collision_detector_fcl_description.xml)
+pluginlib_export_plugin_description_file(moveit_core collision_detector_acl_description.xml)
 pluginlib_export_plugin_description_file(moveit_core collision_detector_bullet_description.xml)
 pluginlib_export_plugin_description_file(moveit_core filter_plugin_butterworth.xml)
 
