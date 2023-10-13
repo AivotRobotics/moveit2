@@ -4,6 +4,7 @@ add_library(moveit_default_planning_request_adapter_plugins SHARED
   src/empty.cpp
   src/fix_start_state_bounds.cpp
   src/fix_start_state_collision.cpp
+  src/aivot_fix_start_state_collision.cpp
   src/fix_start_state_path_constraints.cpp
   src/fix_workspace_bounds.cpp
   src/add_ruckig_traj_smoothing.cpp
