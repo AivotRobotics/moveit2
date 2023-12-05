@@ -1,7 +1,7 @@
 #include <moveit/planning_request_adapter/planning_request_adapter.h>
 #include <class_loader/class_loader.hpp>
 #include <moveit/robot_state/conversions.h>
-#include <moveit/collision_detection_acl/collision_env_acl.h>
+//#include <moveit/collision_detection_acl/collision_env_acl.h>
 
 namespace default_planner_request_adapters
 {
@@ -93,46 +93,46 @@ public:
                 invokeStuckPlanner = true;
             }
         }
-
+        invokeStuckPlanner = false;
         if (invokeStuckPlanner) {
-            const collision_detection::CollisionEnvACL* pCollisionEnvAcl =
-                dynamic_cast<const collision_detection::CollisionEnvACL*>(planning_scene->getCollisionEnv().get());
-            assert(pCollisionEnvAcl != nullptr && "Expected collision env of type CollisionEnvACL");
-
-            std::vector<moveit::core::RobotState> prefixStates = pCollisionEnvAcl->getUnstuckPath(start_state);
-            // if prefixStates is non-empty, first node is the start state and last node is the un-collided state
-            if (prefixStates.size() > 1) {
-                // set updated start state to last prefix entry
-                start_state = prefixStates.back();
-                prefixStates.pop_back();
-
-                planning_interface::MotionPlanRequest req2 = req;
-                moveit::core::robotStateToRobotStateMsg(start_state, req2.start_state);
-                bool solved = planner(planning_scene, req2, res);
-                RCLCPP_INFO_STREAM(LOGGER, "Planning with updated start state returned " <<
-                    std::boolalpha << solved);
-
-                if (solved && !res.trajectory->empty())
-                {
-                    size_t initialWayPointCount = res.trajectory->getWayPointCount();
-                    // heuristically decide a duration offset for the trajectory (induced by the additional point added as a
-                    // prefix to the computed trajectory)
-                    res.trajectory->setWayPointDurationFromPrevious(
-                        0, std::min(max_dt_offset_, res.trajectory->getAverageSegmentDuration()));
-                    // TODO: there's an opportunity to optimize these vector operations
-                    for (auto prefix_state : prefixStates) {
-                        res.trajectory->addPrefixWayPoint(prefix_state, 0.0);
-                    }
-                    RCLCPP_INFO_STREAM(LOGGER, "Planning with updated start state" <<
-                        ", initialWaypoints: " << initialWayPointCount <<
-                        ", finalWayPoints: " << res.trajectory->getWayPointCount());
-                }
-                return solved;
-            } else {
-                RCLCPP_WARN_STREAM(LOGGER, "Callback returned " << prefixStates.size() <<
-                    " prefix states. Passing the original planning request to the planner.");
-                return planner(planning_scene, req, res);
-            }
+//            const collision_detection::CollisionEnvACL* pCollisionEnvAcl =
+//                dynamic_cast<const collision_detection::CollisionEnvACL*>(planning_scene->getCollisionEnv().get());
+//            assert(pCollisionEnvAcl != nullptr && "Expected collision env of type CollisionEnvACL");
+//
+//            std::vector<moveit::core::RobotState> prefixStates = pCollisionEnvAcl->getUnstuckPath(start_state);
+//            // if prefixStates is non-empty, first node is the start state and last node is the un-collided state
+//            if (prefixStates.size() > 1) {
+//                // set updated start state to last prefix entry
+//                start_state = prefixStates.back();
+//                prefixStates.pop_back();
+//
+//                planning_interface::MotionPlanRequest req2 = req;
+//                moveit::core::robotStateToRobotStateMsg(start_state, req2.start_state);
+//                bool solved = planner(planning_scene, req2, res);
+//                RCLCPP_INFO_STREAM(LOGGER, "Planning with updated start state returned " <<
+//                    std::boolalpha << solved);
+//
+//                if (solved && !res.trajectory->empty())
+//                {
+//                    size_t initialWayPointCount = res.trajectory->getWayPointCount();
+//                    // heuristically decide a duration offset for the trajectory (induced by the additional point added as a
+//                    // prefix to the computed trajectory)
+//                    res.trajectory->setWayPointDurationFromPrevious(
+//                        0, std::min(max_dt_offset_, res.trajectory->getAverageSegmentDuration()));
+//                    // TODO: there's an opportunity to optimize these vector operations
+//                    for (auto prefix_state : prefixStates) {
+//                        res.trajectory->addPrefixWayPoint(prefix_state, 0.0);
+//                    }
+//                    RCLCPP_INFO_STREAM(LOGGER, "Planning with updated start state" <<
+//                        ", initialWaypoints: " << initialWayPointCount <<
+//                        ", finalWayPoints: " << res.trajectory->getWayPointCount());
+//                }
+//                return solved;
+//            } else {
+//                RCLCPP_WARN_STREAM(LOGGER, "Callback returned " << prefixStates.size() <<
+//                    " prefix states. Passing the original planning request to the planner.");
+//                return planner(planning_scene, req, res);
+//            }
         }
         else
         {
