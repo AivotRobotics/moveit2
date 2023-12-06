@@ -1,8 +1,0 @@
-<library path="collision_detector_acl_plugin">
-  <class name="ACL" type="collision_detection::CollisionDetectorACLPluginLoader"
-  base_class_type="collision_detection::CollisionPlugin">
-    <description>
-      ACL Collision Detector, build by Aivot
-    </description>
-  </class>
-</library>
