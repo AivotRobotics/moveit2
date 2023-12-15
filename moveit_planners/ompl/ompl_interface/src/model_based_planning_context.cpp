@@ -757,14 +757,12 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
   int iv = ompl_simple_setup_->getSpaceInformation()->getMotionValidator()->getInvalidMotionCount();
   RCLCPP_DEBUG(LOGGER, "There were %d valid motions and %d invalid motions.", v, iv);
 
-  {
-    // Debug OMPL setup and solution
-    if (rcutils_logging_logger_is_enabled_for(LOGGER.get_name(), RCUTILS_LOG_SEVERITY_DEBUG)) {
+  RCLCPP_DEBUG(LOGGER, "%s", [&]{
+      // Debug OMPL setup and solution
       std::stringstream debug_out;
       ompl_simple_setup_->print(debug_out);
-      RCLCPP_DEBUG(LOGGER, "%s", rclcpp::get_c_string(debug_out.str()));
-    }
-  }
+      return debug_out.str();
+  }().c_str());
 }
 
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanResponse& res)
