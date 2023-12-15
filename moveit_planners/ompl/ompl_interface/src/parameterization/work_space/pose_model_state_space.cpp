@@ -38,7 +38,7 @@
 #include <ompl/base/spaces/SE3StateSpace.h>
 
 #include <utility>
-
+#include "moveit/utils/AivotProfiler.h"
 namespace ompl_interface
 {
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("moveit.ompl_planning.pose_model_state_space");
@@ -133,6 +133,7 @@ void ompl_interface::PoseModelStateSpace::sanityChecks() const
 void ompl_interface::PoseModelStateSpace::interpolate(const ompl::base::State* from, const ompl::base::State* to,
                                                       const double t, ompl::base::State* state) const
 {
+    aivot::profiler::ScopedBlock sblock("PoseModelStateSpace::interpolate");
   // we want to interpolate in Cartesian space; we do not have a guarantee that from and to
   // have their poses computed, but this is very unlikely to happen (depends how the planner gets its input states)
 
@@ -320,18 +321,21 @@ ompl::base::StateSamplerPtr ompl_interface::PoseModelStateSpace::allocDefaultSta
 
     void sampleUniform(ompl::base::State* state) override
     {
+      aivot::profiler::ScopedBlock sblock("PoseModelStateSampler::sampleUniform()");
       sampler_->sampleUniform(state);
       afterStateSample(state);
     }
 
     void sampleUniformNear(ompl::base::State* state, const ompl::base::State* near, const double distance) override
     {
+      aivot::profiler::ScopedBlock sblock("PoseModelStateSampler::sampleUniformNear()");
       sampler_->sampleUniformNear(state, near, distance);
       afterStateSample(state);
     }
 
     void sampleGaussian(ompl::base::State* state, const ompl::base::State* mean, const double stdDev) override
     {
+      aivot::profiler::ScopedBlock sblock("PoseModelStateSampler::sampleGaussian()");
       sampler_->sampleGaussian(state, mean, stdDev);
       afterStateSample(state);
     }
@@ -339,6 +343,7 @@ ompl::base::StateSamplerPtr ompl_interface::PoseModelStateSpace::allocDefaultSta
   protected:
     void afterStateSample(ompl::base::State* sample) const
     {
+      aivot::profiler::ScopedBlock sblock("PoseModelStateSampler::afterStateSample()");
       sample->as<StateType>()->setJointsComputed(true);
       sample->as<StateType>()->setPoseComputed(false);
       space_->as<PoseModelStateSpace>()->computeStateFK(sample);

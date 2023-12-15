@@ -39,6 +39,7 @@
 #include <ompl/base/spaces/constraint/ConstrainedStateSpace.h>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
+#include "moveit/utils/AivotProfiler.h"
 
 namespace ompl_interface
 {
@@ -77,7 +78,7 @@ bool StateValidityChecker::isValid(const ompl::base::State* state, bool verbose)
 {
   assert(state != nullptr);
 
-//  moveit::tools::Profiler::ScopedBlock sblock("StateValiditiChecker::isValid");
+  aivot::profiler::ScopedBlock sblock("StateValiditiChecker::isValid()");
 
   // Use cached validity if it is available
   if (state->as<ModelBasedStateSpace::StateType>()->isValidityKnown()) {
@@ -136,7 +137,8 @@ bool StateValidityChecker::isValid(const ompl::base::State* state, bool verbose)
 bool StateValidityChecker::isValid(const ompl::base::State* state, double& dist, bool verbose) const
 {
   assert(state != nullptr);
-//  moveit::tools::Profiler::ScopedBlock sblock("StateValiditiChecker::isValidWithDistance");
+  aivot::profiler::ScopedBlock sblock("StateValiditiChecker::isValid(dist)");
+
   // Use cached validity and distance if they are available
   if (state->as<ModelBasedStateSpace::StateType>()->isValidityKnown() &&
       state->as<ModelBasedStateSpace::StateType>()->isGoalDistanceKnown())
@@ -223,12 +225,14 @@ double StateValidityChecker::clearance(const ompl::base::State* state) const
 bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* wrapped_state, bool verbose) const
 {
   assert(wrapped_state != nullptr);
+  aivot::profiler::ScopedBlock sblock("ConstrainedPlanningStateValidityChecker::isValid()");
   // Unwrap the state from a ConstrainedStateSpace::StateType
   auto state = wrapped_state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
 
   // Use cached validity if it is available
   if (state->as<ModelBasedStateSpace::StateType>()->isValidityKnown())
   {
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::cached");
     return state->as<ModelBasedStateSpace::StateType>()->isMarkedValid();
   }
 
@@ -237,6 +241,7 @@ bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* w
   {
     RCLCPP_DEBUG(LOGGER, "State outside bounds");
     const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::invalid(StateOutOfBounds)");
     return false;
   }
 
@@ -249,6 +254,7 @@ bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* w
   if (kset && !kset->decide(*robot_state, verbose).satisfied)
   {
     const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::invalid(PathConstraint)");
     return false;
   }
 
@@ -256,6 +262,7 @@ bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* w
   if (!planning_context_->getPlanningScene()->isStateFeasible(*robot_state, verbose))
   {
     const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::invalid(NotFeasible)");
     return false;
   }
 
@@ -265,10 +272,12 @@ bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* w
       verbose ? collision_request_simple_verbose_ : collision_request_simple_, res, *robot_state);
   if (!res.collision)
   {
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::valid");
     const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markValid();
   }
   else
   {
+    aivot::profiler::Profiler::Default().event("ConstrainedPlanningStateValidityChecker::invalid(Collision)");
     const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
   }
   return !res.collision;
@@ -278,6 +287,7 @@ bool ConstrainedPlanningStateValidityChecker::isValid(const ompl::base::State* w
                                                       bool verbose) const
 {
   assert(wrapped_state != nullptr);
+  aivot::profiler::ScopedBlock sblock("ConstrainedPlanningStateValidityChecker::isValid(dist)");
   // Unwrap the state from a ConstrainedStateSpace::StateType
   auto state = wrapped_state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
 

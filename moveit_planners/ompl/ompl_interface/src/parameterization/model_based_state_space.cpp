@@ -37,6 +37,8 @@
 #include <moveit/ompl_interface/parameterization/model_based_state_space.h>
 #include <utility>
 
+#include "moveit/utils/AivotProfiler.h"
+
 namespace ompl_interface
 {
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("moveit.ompl_planning.model_based_state_space");
@@ -207,6 +209,7 @@ bool ompl_interface::ModelBasedStateSpace::satisfiesBounds(const ompl::base::Sta
 void ompl_interface::ModelBasedStateSpace::interpolate(const ompl::base::State* from, const ompl::base::State* to,
                                                        const double t, ompl::base::State* state) const
 {
+    aivot::profiler::ScopedBlock sblock("ModelBasedStateSpace::interpolate");
   // clear any cached info (such as validity known or not)
   state->as<StateType>()->clearKnownInformation();
 
@@ -277,12 +280,14 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
 
     void sampleUniform(ompl::base::State* state) override
     {
+      aivot::profiler::ScopedBlock sblock("DefaultStateSampler::sampleUniform()");
       joint_model_group_->getVariableRandomPositions(moveit_rng_, state->as<StateType>()->values, *joint_bounds_);
       state->as<StateType>()->clearKnownInformation();
     }
 
     void sampleUniformNear(ompl::base::State* state, const ompl::base::State* near, const double distance) override
     {
+      aivot::profiler::ScopedBlock sblock("DefaultStateSampler::sampleUniformNear()");
       joint_model_group_->getVariableRandomPositionsNearBy(moveit_rng_, state->as<StateType>()->values, *joint_bounds_,
                                                            near->as<StateType>()->values, distance);
       state->as<StateType>()->clearKnownInformation();
@@ -290,6 +295,7 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
 
     void sampleGaussian(ompl::base::State* state, const ompl::base::State* mean, const double stdDev) override
     {
+      aivot::profiler::ScopedBlock sblock("DefaultStateSampler::sampleGaussian()");
       sampleUniformNear(state, mean, rng_.gaussian(0.0, stdDev));
     }
 

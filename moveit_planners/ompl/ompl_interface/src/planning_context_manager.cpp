@@ -564,6 +564,7 @@ ModelBasedPlanningContextPtr PlanningContextManager::getPlanningContext(
     factory = getStateSpaceFactory(pc->second.group, req);
   }
 
+  RCLCPP_INFO(LOGGER, "Using state space factory %s", factory->getType().c_str());
   ModelBasedPlanningContextPtr context = getPlanningContext(pc->second, factory, req);
 
   if (context)

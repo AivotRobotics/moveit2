@@ -37,9 +37,10 @@
 #include <moveit/constraint_samplers/default_constraint_samplers.h>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
-//#include <moveit/profiler/profiler.h>
 #include <cassert>
 #include <functional>
+#include "moveit/utils/AivotProfiler.h"
+#include "moveit/utils/moveit_error_code.h"
 
 namespace constraint_samplers
 {
@@ -569,7 +570,7 @@ void samplingIkCallbackFnAdapter(moveit::core::RobotState* state, const moveit::
   else
   {
     error_code.val = moveit_msgs::msg::MoveItErrorCodes::NO_IK_SOLUTION;
-//    moveit::tools::Profiler::Event("IKConstraintSampler::invalidGroupState");
+    aivot::profiler::Profiler::Default().event("IKConstraintSampler::invalidGroupState");
   }
 }
 }  // namespace
@@ -660,7 +661,7 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
                                  const kinematics::KinematicsBase::IKCallbackFn& adapted_ik_validity_callback,
                                  double timeout, moveit::core::RobotState& state, bool use_as_seed)
 {
-//  moveit::tools::Profiler::ScopedBlock sblock("IKConstraintSampler::callIK");
+  aivot::profiler::ScopedBlock sblock("IKConstraintSampler::callIK");
   const std::vector<size_t>& ik_joint_bijection = jmg_->getKinematicsSolverJointBijection();
   std::vector<double> seed(ik_joint_bijection.size(), 0.0);
   std::vector<double> vals;
@@ -693,9 +694,10 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
     state.setJointGroupPositions(jmg_, solution);
 
     bool valid = validate(state);
-//    if(!valid) {
-//        moveit::tools::Profiler::Event("IKConstraintSampler::invalidIK");
-//    }
+    if(!valid) {
+        aivot::profiler::Profiler::Default().event("IKConstraintSampler::invalidIK");
+    }
+    aivot::profiler::Profiler::Default().event("IKConstraintSampler::validIK");
     return valid;
   }
   else
@@ -711,7 +713,10 @@ bool IKConstraintSampler::callIK(const geometry_msgs::msg::Pose& ik_query,
       RCLCPP_INFO(LOGGER, "IK failed");
     }
   }
-//  moveit::tools::Profiler::Event("IKConstraintSampler::noIK");
+
+  std::stringstream ss;
+  ss << "IKConstraintSampler::noIK(" << moveit::core::error_code_to_string(error) << ")";
+  aivot::profiler::Profiler::Default().event(ss.str());
   return false;
 }
 

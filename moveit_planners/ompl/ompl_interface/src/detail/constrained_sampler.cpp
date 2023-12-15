@@ -38,7 +38,7 @@
 #include <moveit/ompl_interface/model_based_planning_context.h>
 
 #include <utility>
-
+#include "moveit/utils/AivotProfiler.h"
 ompl_interface::ConstrainedSampler::ConstrainedSampler(const ModelBasedPlanningContext* pc,
                                                        constraint_samplers::ConstraintSamplerPtr cs)
   : ob::StateSampler(pc->getOMPLStateSpace().get())
@@ -66,22 +66,26 @@ double ompl_interface::ConstrainedSampler::getConstrainedSamplingRate() const
 
 bool ompl_interface::ConstrainedSampler::sampleC(ob::State* state)
 {
+  aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleC()");
   if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(),
                                   planning_context_->getMaximumStateSamplingAttempts()))
   {
     planning_context_->getOMPLStateSpace()->copyToOMPLState(state, work_state_);
     if (space_->satisfiesBounds(state))
     {
+      aivot::profiler::Profiler::Default().event("ConstrainedSampler::constrained_success_");
       ++constrained_success_;
       return true;
     }
   }
+  aivot::profiler::Profiler::Default().event("ConstrainedSampler::constrained_failure_");
   ++constrained_failure_;
   return false;
 }
 
 void ompl_interface::ConstrainedSampler::sampleUniform(ob::State* state)
 {
+  aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleUniform()");
   if (!sampleC(state) && !sampleC(state) && !sampleC(state))
     default_->sampleUniform(state);
 }
@@ -89,11 +93,18 @@ void ompl_interface::ConstrainedSampler::sampleUniform(ob::State* state)
 void ompl_interface::ConstrainedSampler::sampleUniformNear(ob::State* state, const ob::State* near,
                                                            const double distance)
 {
-  if (sampleC(state) || sampleC(state) || sampleC(state))
+  aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleUniformNear()");
+  if ([&]{
+      aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleUniformNear(sampleC)");
+      return sampleC(state) || sampleC(state) || sampleC(state);}())
   {
-    double total_d = space_->distance(state, near);
+      double total_d = [&]{
+          aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleUniformNear(distance_)");
+          return space_->distance(state, near);
+      }();
     if (total_d > distance)
     {
+      aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleUniformNear(interpolate_)");
       double dist = pow(rng_.uniform01(), inv_dim_) * distance;
       space_->interpolate(near, state, dist / total_d, state);
     }
@@ -104,16 +115,27 @@ void ompl_interface::ConstrainedSampler::sampleUniformNear(ob::State* state, con
 
 void ompl_interface::ConstrainedSampler::sampleGaussian(ob::State* state, const ob::State* mean, const double stdDev)
 {
-  if (sampleC(state) || sampleC(state) || sampleC(state))
+  aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleGaussian()");
+  if ([&]{
+      aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleGaussian(sampleC)");
+      return sampleC(state) || sampleC(state) || sampleC(state); }())
   {
-    double total_d = space_->distance(state, mean);
-    double distance = rng_.gaussian(0.0, stdDev);
+    double total_d = [&]{
+        aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleGaussian(distance_)");
+        return space_->distance(state, mean);
+    }();
+    double distance = [&] {
+        aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleGaussian(gaussian_)");
+        return rng_.gaussian(0.0, stdDev);
+    }();
     if (total_d > distance)
     {
       double dist = pow(rng_.uniform01(), inv_dim_) * distance;
       space_->interpolate(mean, state, dist / total_d, state);
     }
   }
-  else
+  else {
+    aivot::profiler::ScopedBlock sblock("ConstrainedSampler::sampleGaussian(default_)");
     default_->sampleGaussian(state, mean, stdDev);
+  }
 }
