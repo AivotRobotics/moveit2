@@ -74,12 +74,128 @@ void MoveGroupMoveAction::initialize()
 void MoveGroupMoveAction::executeMoveCallback(const std::shared_ptr<MGActionGoal>& goal)
 {
   RCLCPP_INFO(LOGGER, "executing..");
+ 
+  // Print a simple debug message for the goal
+  RCLCPP_INFO(LOGGER, "Goal received.");
+ 
+  // Debugging: Print each field of the request
+  const auto& request = goal->get_goal()->request;
+ 
+  RCLCPP_INFO_STREAM(LOGGER, "Request pipeline_id: " << request.pipeline_id);
+  RCLCPP_INFO_STREAM(LOGGER, "Request group_name: " << request.group_name);
+  RCLCPP_INFO_STREAM(LOGGER, "Request num_planning_attempts: " << request.num_planning_attempts);
+  RCLCPP_INFO_STREAM(LOGGER, "Request allowed_planning_time: " << request.allowed_planning_time);
+  RCLCPP_INFO_STREAM(LOGGER, "Request max_velocity_scaling_factor: " << request.max_velocity_scaling_factor);
+  RCLCPP_INFO_STREAM(LOGGER, "Request max_acceleration_scaling_factor: " << request.max_acceleration_scaling_factor);
+ 
+  // Print start_state details
+  const auto& start_state = request.start_state;
+  RCLCPP_INFO_STREAM(LOGGER, "Request start_state is set: " << !moveit::core::isEmpty(start_state));
+ 
+  // Log joint names
+  std::ostringstream joint_names_stream;
+  for (const auto& name : start_state.joint_state.name)
+    joint_names_stream << name << " ";
+  RCLCPP_INFO_STREAM(LOGGER, "Start state joint names: " << joint_names_stream.str());
+ 
+  // Log joint positions
+  std::ostringstream joint_positions_stream;
+  for (const auto& position : start_state.joint_state.position)
+    joint_positions_stream << position << " ";
+  RCLCPP_INFO_STREAM(LOGGER, "Start state joint positions: " << joint_positions_stream.str());
+ 
+  // Print goal_constraints details
+  RCLCPP_INFO_STREAM(LOGGER, "Request goal_constraints size: " << request.goal_constraints.size());
+  for (size_t i = 0; i < request.goal_constraints.size(); ++i)
+  {
+    const auto& constraint = request.goal_constraints[i];
+    RCLCPP_INFO_STREAM(LOGGER, "Goal constraint [" << i << "] joint_constraints size: " << constraint.joint_constraints.size());
+    for (size_t j = 0; j < constraint.joint_constraints.size(); ++j)
+    {
+      const auto& joint_constraint = constraint.joint_constraints[j];
+      RCLCPP_INFO_STREAM(LOGGER, "  Joint constraint [" << j << "] name: " << joint_constraint.joint_name);
+      RCLCPP_INFO_STREAM(LOGGER, "  Joint constraint [" << j << "] position: " << joint_constraint.position);
+    }
+    RCLCPP_INFO_STREAM(LOGGER, "Goal constraint [" << i << "] position_constraints size: " << constraint.position_constraints.size());
+    // Add similar detailed logging for position_constraints, orientation_constraints, etc., if needed.
+  }
+ 
+  // Print path_constraints details
+  const auto& path_constraints = request.path_constraints;
+  RCLCPP_INFO_STREAM(LOGGER, "Request path_constraints joint_constraints size: " << path_constraints.joint_constraints.size());
+  for (size_t i = 0; i < path_constraints.joint_constraints.size(); ++i)
+  {
+    const auto& joint_constraint = path_constraints.joint_constraints[i];
+    RCLCPP_INFO_STREAM(LOGGER, "  Joint constraint [" << i << "] name: " << joint_constraint.joint_name);
+    RCLCPP_INFO_STREAM(LOGGER, "  Joint constraint [" << i << "] position: " << joint_constraint.position);
+  }
+  RCLCPP_INFO_STREAM(LOGGER, "Request path_constraints position_constraints size: " << path_constraints.position_constraints.size());
+  for (size_t i = 0; i < path_constraints.position_constraints.size(); ++i)
+  {
+    const auto& position_constraint = path_constraints.position_constraints[i];
+    RCLCPP_INFO_STREAM(LOGGER, "  Position constraint [" << i << "] frame_id: " << position_constraint.header.frame_id);
+    RCLCPP_INFO_STREAM(LOGGER, "  Position constraint [" << i << "] target point offset: "
+                                                          << position_constraint.target_point_offset.x << ", "
+                                                          << position_constraint.target_point_offset.y << ", "
+                                                          << position_constraint.target_point_offset.z);
+  }
+  RCLCPP_INFO_STREAM(LOGGER, "Request path_constraints orientation_constraints size: " << path_constraints.orientation_constraints.size());
+  for (size_t i = 0; i < path_constraints.orientation_constraints.size(); ++i)
+  {
+    const auto& orientation_constraint = path_constraints.orientation_constraints[i];
+    RCLCPP_INFO_STREAM(LOGGER, "  Orientation constraint [" << i << "] frame_id: " << orientation_constraint.header.frame_id);
+    RCLCPP_INFO_STREAM(LOGGER, "  Orientation constraint [" << i << "] orientation: "
+                                                            << orientation_constraint.orientation.x << ", "
+                                                            << orientation_constraint.orientation.y << ", "
+                                                            << orientation_constraint.orientation.z << ", "
+                                                            << orientation_constraint.orientation.w);
+  }
+ 
+  // Print trajectory_constraints details
+  const auto& trajectory_constraints = request.trajectory_constraints;
+  RCLCPP_INFO_STREAM(LOGGER, "Request trajectory_constraints constraints size: " << trajectory_constraints.constraints.size());
+  for (size_t i = 0; i < trajectory_constraints.constraints.size(); ++i)
+  {
+    const auto& constraint = trajectory_constraints.constraints[i];
+    RCLCPP_INFO_STREAM(LOGGER, "  Trajectory constraint [" << i << "] joint_constraints size: " << constraint.joint_constraints.size());
+    for (size_t j = 0; j < constraint.joint_constraints.size(); ++j)
+    {
+      const auto& joint_constraint = constraint.joint_constraints[j];
+      RCLCPP_INFO_STREAM(LOGGER, "    Joint constraint [" << j << "] name: " << joint_constraint.joint_name);
+      RCLCPP_INFO_STREAM(LOGGER, "    Joint constraint [" << j << "] position: " << joint_constraint.position);
+    }
+    RCLCPP_INFO_STREAM(LOGGER, "  Trajectory constraint [" << i << "] position_constraints size: " << constraint.position_constraints.size());
+    for (size_t j = 0; j < constraint.position_constraints.size(); ++j)
+    {
+      const auto& position_constraint = constraint.position_constraints[j];
+      RCLCPP_INFO_STREAM(LOGGER, "    Position constraint [" << j << "] frame_id: " << position_constraint.header.frame_id);
+      RCLCPP_INFO_STREAM(LOGGER, "    Position constraint [" << j << "] target point offset: "
+                                                              << position_constraint.target_point_offset.x << ", "
+                                                              << position_constraint.target_point_offset.y << ", "
+                                                              << position_constraint.target_point_offset.z);
+    }
+    RCLCPP_INFO_STREAM(LOGGER, "  Trajectory constraint [" << i << "] orientation_constraints size: " << constraint.orientation_constraints.size());
+    for (size_t j = 0; j < constraint.orientation_constraints.size(); ++j)
+    {
+      const auto& orientation_constraint = constraint.orientation_constraints[j];
+      RCLCPP_INFO_STREAM(LOGGER, "    Orientation constraint [" << j << "] frame_id: " << orientation_constraint.header.frame_id);
+      RCLCPP_INFO_STREAM(LOGGER, "    Orientation constraint [" << j << "] orientation: "
+                                                                  << orientation_constraint.orientation.x << ", "
+                                                                  << orientation_constraint.orientation.y << ", "
+                                                                  << orientation_constraint.orientation.z << ", "
+                                                                  << orientation_constraint.orientation.w);
+    }
+  }
+ 
+  RCLCPP_INFO_STREAM(LOGGER, "Request cartesian_speed_end_effector_link: " << request.cartesian_speed_end_effector_link);
+  RCLCPP_INFO_STREAM(LOGGER, "Request max_cartesian_speed: " << request.max_cartesian_speed);
+ 
   setMoveState(PLANNING, goal);
   // before we start planning, ensure that we have the latest robot state received...
   auto node = context_->moveit_cpp_->getNode();
   context_->planning_scene_monitor_->waitForCurrentRobotState(node->get_clock()->now());
   context_->planning_scene_monitor_->updateFrameTransforms();
-
+ 
   auto action_res = std::make_shared<MGAction::Result>();
   if (goal->get_goal()->planning_options.plan_only || !context_->allow_trajectory_execution_)
   {
@@ -91,7 +207,7 @@ void MoveGroupMoveAction::executeMoveCallback(const std::shared_ptr<MGActionGoal
   }
   else
     executeMoveCallbackPlanAndExecute(goal, action_res);
-
+ 
   bool planned_trajectory_empty = trajectory_processing::isTrajectoryEmpty(action_res->planned_trajectory);
   // @todo: Response messages
   RCLCPP_INFO_STREAM(LOGGER, getActionResultString(action_res->error_code, planned_trajectory_empty,
@@ -102,10 +218,11 @@ void MoveGroupMoveAction::executeMoveCallback(const std::shared_ptr<MGActionGoal
     goal->canceled(action_res);
   else
     goal->abort(action_res);
-
+ 
   setMoveState(IDLE, goal);
   preempt_requested_ = false;
 }
+ 
 
 void MoveGroupMoveAction::executeMoveCallbackPlanAndExecute(const std::shared_ptr<MGActionGoal>& goal,
                                                             std::shared_ptr<MGAction::Result>& action_res)
