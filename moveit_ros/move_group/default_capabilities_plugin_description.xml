@@ -72,4 +72,10 @@
     </description>
   </class>
 
+  <class name="move_group/MoveGroupManipulationAgentService" type="move_group::MoveGroupManipulationAgentService" base_class_type="move_group::MoveGroupCapability">
+    <description>
+      Provide a capability that exposes several services for the manipulation agent
+    </description>
+  </class>
+
 </library>

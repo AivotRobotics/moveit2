@@ -15,6 +15,7 @@ find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(aivot_msgs REQUIRED)
 
 # Finds Boost Components
 include(ConfigExtras.cmake)
@@ -31,6 +32,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   moveit_ros_occupancy_map_monitor
   moveit_ros_planning
   pluginlib
+  aivot_msgs
 )
 
 include_directories(include)
@@ -51,7 +53,8 @@ add_library(moveit_move_group_default_capabilities SHARED
   src/default_capabilities/get_planning_scene_service_capability.cpp
   src/default_capabilities/apply_planning_scene_service_capability.cpp
   src/default_capabilities/clear_octomap_service_capability.cpp
-  src/default_capabilities/tf_publisher_capability.cpp)
+  src/default_capabilities/tf_publisher_capability.cpp
+  src/default_capabilities/manipulation_agent_capability.cpp)
 
 set_target_properties(moveit_move_group_capabilities_base
   PROPERTIES VERSION "${${PROJECT_NAME}_VERSION}")
