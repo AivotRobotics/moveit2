@@ -46,6 +46,8 @@
 #include <tf2/convert.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 
+#define MAX_FLOAT std::numeric_limits<float>::max()
+
 namespace move_group
 {
 static const rclcpp::Logger LOGGER =
@@ -76,7 +78,9 @@ void MoveGroupManipulationAgentService::initialize()
           {
             res->position[i] = joint_values[i];
           }
-          RCLCPP_INFO(LOGGER, "Arm position retrieved successfully");
+          RCLCPP_INFO(LOGGER, "Arm position retrieved successfully with joint positions: %.2f, %.2f, %.2f, %.2f, %.2f, %.2f",
+                      res->position[0], res->position[1], res->position[2],
+                      res->position[3], res->position[4], res->position[5]);
         }
         else
         {
@@ -93,8 +97,6 @@ void MoveGroupManipulationAgentService::initialize()
         moveit::core::RobotState start_state =
             planning_scene_monitor::LockedPlanningSceneRO(context_->planning_scene_monitor_)->getCurrentState();
 
-        // TODO (sergio): use link_offset if provided in the request
-
         if (const moveit::core::JointModelGroup* jmg = start_state.getJointModelGroup(req->arm_name))
         {
             const std::string& link_name = req->link_name;
@@ -103,9 +105,11 @@ void MoveGroupManipulationAgentService::initialize()
                 const Eigen::Isometry3d& link_transform = start_state.getGlobalLinkTransform(link_name);
 
                 Eigen::Isometry3d pose = link_transform;
-                if (req->link_offset.x != 0.0 || req->link_offset.y != 0.0 || req->link_offset.z != 0.0) {
+                
+                if (req->link_offset.x != MAX_FLOAT && req->link_offset.y != MAX_FLOAT && req->link_offset.z != MAX_FLOAT) {
                     Eigen::Vector3d offset(req->link_offset.x, req->link_offset.y, req->link_offset.z);
                     pose.translation() += pose.linear() * offset;
+                    RCLCPP_INFO(LOGGER, "Arm pose retrieved WITH LINK OFFSET");
                 }
 
                 tf2::Transform tf2_transform;
@@ -141,6 +145,9 @@ void MoveGroupManipulationAgentService::initialize()
                 res->base_frame = context_->planning_scene_monitor_->getRobotModel()->getModelFrame();
 
                 RCLCPP_INFO(LOGGER, "Arm pose retrieved successfully for link: %s", link_name.c_str());
+                RCLCPP_INFO(LOGGER, "Pose: position=(%.2f, %.2f, %.2f), orientation=(%.2f, %.2f, %.2f, %.2f)",
+                            res->position.x, res->position.y, res->position.z,
+                            res->angle.x, res->angle.y, res->angle.z);
             }
             else
             {
@@ -174,6 +181,7 @@ void MoveGroupManipulationAgentService::initialize()
                     RCLCPP_INFO(LOGGER, "Retrieving position for joint '%s'", joint_name.c_str());
                     res->position = start_state.getJointPositions(joint_name)[0];
                     RCLCPP_INFO(LOGGER, "Position for joint '%s' retrieved successfully", joint_name.c_str());
+                    RCLCPP_INFO(LOGGER, "Gripper position: %.2f", res->position);
                 }
                 else
                 {
