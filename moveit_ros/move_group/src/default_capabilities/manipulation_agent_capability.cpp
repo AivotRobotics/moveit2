@@ -45,6 +45,11 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2/convert.h>
 #include <tf2/LinearMath/Matrix3x3.h>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <rclcpp/callback_group.hpp>
+#include <algorithm>
+#include <cctype>
+
 
 #define MAX_FLOAT std::numeric_limits<float>::max()
 
@@ -55,10 +60,18 @@ static const rclcpp::Logger LOGGER =
 
 MoveGroupManipulationAgentService::MoveGroupManipulationAgentService() : MoveGroupCapability("ManipulationAgentService")
 {
+
 }
 
 void MoveGroupManipulationAgentService::initialize()
 {
+
+    auto node = context_->moveit_cpp_->getNode();
+    callback_group_action_client_ = node->create_callback_group(
+        rclcpp::CallbackGroupType::MutuallyExclusive);
+    attach_object_action_client_ = rclcpp_action::create_client<isaac_ros_cumotion_interfaces::action::AttachObject>(
+        node, "/attach_object", callback_group_action_client_);
+
   get_arm_position_service_ = context_->moveit_cpp_->getNode()->create_service<aivot_msgs::srv::GetArmPosition>(
       "get_arm_position", [this](const std::shared_ptr<rmw_request_id_t>& request_header,
                                  const std::shared_ptr<aivot_msgs::srv::GetArmPosition::Request>& req,
@@ -197,7 +210,178 @@ void MoveGroupManipulationAgentService::initialize()
             RCLCPP_ERROR(LOGGER, "No finger joints provided in the request");
         }
     });
-}  
+
+    modify_scene_object_service_ = context_->moveit_cpp_->getNode()->create_service<aivot_msgs::srv::ModifySceneObject>(
+        "modify_scene_object", [this](const std::shared_ptr<rmw_request_id_t>& request_header,
+                                      const std::shared_ptr<aivot_msgs::srv::ModifySceneObject::Request>& req,
+                                      const std::shared_ptr<aivot_msgs::srv::ModifySceneObject::Response>& res) {
+        // Modify scene object service logic
+        RCLCPP_INFO(LOGGER, "Received request to modify scene object: %s", req->object_id.name.c_str());
+
+        int prevArmIdx = ArmIdx (req->prev_arm);
+        int newArmIdx = ArmIdx (req->new_arm);
+        isaac_ros_cumotion_interfaces::action::AttachObject::Goal goal;
+
+        // Configuration of object to be attached, including its shape (sphere, cuboid, mesh), pose and scale.
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = req->tip_link;
+        marker.header.stamp = context_->moveit_cpp_->getNode()->now();
+        marker.ns = req->object_id.name;
+        marker.type = visualization_msgs::msg::Marker::CUBE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+
+        marker.color.r = 1.0;
+        marker.color.g = 1.0;
+        marker.color.b = 1.0;
+        marker.color.a = 1.0;
+        
+        marker.frame_locked = true;
+
+        const auto & oc = req->object_cuboid;
+        // Extract the 4×4 matrix (row-major):
+        double rowmajor[16];
+        for (int i = 0; i < 16; ++i) {
+            rowmajor[i] = oc.affine[i];
+        }
+        // Translation = elements [3], [7], [11]
+        double tx = rowmajor[3];
+        double ty = rowmajor[7];
+        double tz = rowmajor[11];
+
+        // Rotation‐matrix = [ 0,1,2; 4,5,6; 8,9,10 ] in row‐major form
+        tf2::Matrix3x3 R(
+        rowmajor[0], rowmajor[1], rowmajor[2],
+        rowmajor[4], rowmajor[5], rowmajor[6],
+        rowmajor[8], rowmajor[9], rowmajor[10]);
+        tf2::Quaternion q;
+        R.getRotation(q);
+
+        marker.pose.position.x = tx;
+        marker.pose.position.y = ty;
+        marker.pose.position.z = tz;
+        marker.pose.orientation.x = q.x();
+        marker.pose.orientation.y = q.y();
+        marker.pose.orientation.z = q.z();
+        marker.pose.orientation.w = q.w();
+
+        // Scale from cuboid dims 
+        marker.scale.x = oc.cuboid[3];
+        marker.scale.y = oc.cuboid[4];
+        marker.scale.z = oc.cuboid[5];
+
+        goal.object_config = marker;
+        // Compute the inscribed‐sphere radius = ½ × (smallest cuboid dimension)
+        double size_x = oc.cuboid[3];
+        double size_y = oc.cuboid[4];
+        double size_z = oc.cuboid[5];
+        double min_edge = std::min({size_x, size_y, size_z});
+        goal.fallback_radius = min_edge * 0.5;
+
+        // TODO (sergio): Add logic to select the action server based on the arm index
+        
+        if (prevArmIdx == INV_HAND_IDX && newArmIdx != INV_HAND_IDX) {
+            // Remove the object from the scene and attach it to the new arm
+            RCLCPP_INFO(LOGGER, "Removing object '%s' from the scene", req->object_id.name.c_str());
+            goal.attach_object = true;           
+    
+        } else if (prevArmIdx != INV_HAND_IDX && newArmIdx == INV_HAND_IDX) {
+            // Detach the object from the previous arm and add it to the scene
+            RCLCPP_INFO(LOGGER, "Detaching object '%s' from the previous arm '%s'", req->object_id.name.c_str(), req->prev_arm.c_str());
+            goal.attach_object = false;
+
+        } else {
+            // Not handled case: both arms are either valid or invalid
+            RCLCPP_ERROR(LOGGER, "Invalid arm configuration: both previous and new arms are either valid or invalid");
+            return;
+        }
+
+        // Call the action server to attach the object to the new arm
+        if (!attach_object_action_client_->wait_for_action_server(std::chrono::seconds(3))) {
+            RCLCPP_ERROR(LOGGER, "Action server for attaching object is not available");
+            return;
+        }
+        auto future_goal_handle = attach_object_action_client_->async_send_goal(goal);
+        if (future_goal_handle.wait_for(std::chrono::seconds(10)) == std::future_status::ready)
+        {
+            auto goal_handle_ = future_goal_handle.get();
+            if (!goal_handle_)
+            {
+                throw std::runtime_error("Goal was rejected by the action server");
+            }
+        }
+        else
+        {
+            RCLCPP_ERROR(LOGGER, "Attach object goal call time out...");
+            return;
+        }
+
+        auto goal_handle = future_goal_handle.get();
+
+        // Wait for the result
+        auto future_result = attach_object_action_client_->async_get_result(goal_handle);
+        if (future_result.wait_for(std::chrono::seconds(30)) == std::future_status::ready)
+        {
+            auto goal_handle_ = future_goal_handle.get();
+            if (!goal_handle_)
+            {
+                throw std::runtime_error("Goal was rejected by the Object Attachment action server");
+            }
+        }
+        else
+        {
+            RCLCPP_ERROR(LOGGER, "Object Attachment goal execution time out...");
+            return;
+        }
+
+        // The final result
+        auto result = future_result.get();
+        
+        if (result.result->outcome.find("attached") != std::string::npos)
+        {
+            RCLCPP_INFO(LOGGER, "Object '%s' attached successfully to arm '%s'", req->object_id.name.c_str(), req->new_arm.c_str());
+            res->error_info.description = result.result->outcome;
+        }
+        else if (result.result->outcome.find("detached") != std::string::npos)
+        {
+            RCLCPP_INFO(LOGGER, "Object '%s' detached successfully from arm '%s'", req->object_id.name.c_str(), req->prev_arm.c_str());
+            res->error_info.description = result.result->outcome;
+        }
+        else if (result.result->outcome.find("failed") != std::string::npos)
+        {
+            RCLCPP_ERROR(LOGGER, "Failed to modify object '%s'", req->object_id.name.c_str());
+            res->error_info.description = result.result->outcome;
+        }
+        else
+        {
+            RCLCPP_ERROR(LOGGER, "Unexpected outcome for object '%s'", req->object_id.name.c_str());
+            res->error_info.description = result.result->outcome;
+        }
+    });
+}
+
+int MoveGroupManipulationAgentService::ArmIdx (const std::string & name)
+{
+    if (HasSubStrI (name, "left")) {
+        return LF_HAND_IDX;
+    } else if (HasSubStrI (name, "right")) {
+        return RT_HAND_IDX;
+    }
+    return INV_HAND_IDX;
+}
+bool MoveGroupManipulationAgentService::HasSubStrI (const std::string & value, const std::string & query)
+{
+    return (StrLowerCase(value).find(StrLowerCase(query)) != std::string::npos);
+
+}
+
+std::string MoveGroupManipulationAgentService::StrLowerCase (const std::string & value)
+{
+    std::string result = value;
+    std::transform (result.begin (), result.end (), result.begin (), 
+        [](unsigned char c) { return std::tolower (c); });
+    return result;
+}
+
 }// namespace move_group
 
 #include <pluginlib/class_list_macros.hpp>

@@ -16,6 +16,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(aivot_msgs REQUIRED)
+find_package(isaac_ros_cumotion_interfaces REQUIRED)
 
 # Finds Boost Components
 include(ConfigExtras.cmake)
@@ -33,6 +34,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   moveit_ros_planning
   pluginlib
   aivot_msgs
+  isaac_ros_cumotion_interfaces
 )
 
 include_directories(include)

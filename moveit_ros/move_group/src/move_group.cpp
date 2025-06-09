@@ -115,6 +115,11 @@ public:
     return context_;
   }
 
+  const std::vector<MoveGroupCapabilityPtr>& getCapabilities() const
+  {
+    return capabilities_;
+  }
+
 private:
   void configureCapabilities()
   {
