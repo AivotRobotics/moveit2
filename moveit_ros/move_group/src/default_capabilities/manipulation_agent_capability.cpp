@@ -224,7 +224,6 @@ void MoveGroupManipulationAgentService::initialize()
 
         // Configuration of object to be attached, including its shape (sphere, cuboid, mesh), pose and scale.
         visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = req->tip_link;
         marker.header.stamp = context_->moveit_cpp_->getNode()->now();
         marker.ns = req->object_id.name;
         marker.type = visualization_msgs::msg::Marker::CUBE;
@@ -341,7 +340,7 @@ void MoveGroupManipulationAgentService::initialize()
             RCLCPP_INFO(LOGGER, "Object '%s' attached successfully to arm '%s'", req->object_id.name.c_str(), req->new_arm.c_str());
             res->error_info.description = result.result->outcome;
         }
-        else if (result.result->outcome.find("detached") != std::string::npos)
+        else if (result.result->outcome.find("Detached") != std::string::npos)
         {
             RCLCPP_INFO(LOGGER, "Object '%s' detached successfully from arm '%s'", req->object_id.name.c_str(), req->prev_arm.c_str());
             res->error_info.description = result.result->outcome;
