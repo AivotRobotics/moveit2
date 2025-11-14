@@ -59,7 +59,7 @@ move_group::MoveGroupContext::MoveGroupContext(const moveit_cpp::MoveItCppPtr& m
 
     // configure the planning pipeline
     planning_pipeline_->displayComputedMotionPlans(true);
-    planning_pipeline_->checkSolutionPaths(true);
+    planning_pipeline_->checkSolutionPaths(false);
 
     if (debug_)
       planning_pipeline_->publishReceivedRequests(true);
