@@ -158,7 +158,7 @@ void MoveGroupManipulationAgentService::initialize()
                 res->base_frame = context_->planning_scene_monitor_->getRobotModel()->getModelFrame();
 
                 RCLCPP_INFO(LOGGER, "Arm pose retrieved successfully for link: %s", link_name.c_str());
-                RCLCPP_INFO(LOGGER, "Pose: position=(%.2f, %.2f, %.2f), orientation=(%.2f, %.2f, %.2f, %.2f)",
+                RCLCPP_INFO(LOGGER, "Pose: position=(%.2f, %.2f, %.2f), orientation=(%.2f, %.2f, %.2f)",
                             res->position.x, res->position.y, res->position.z,
                             res->angle.x, res->angle.y, res->angle.z);
             }
@@ -212,7 +212,7 @@ void MoveGroupManipulationAgentService::initialize()
     });
 
     modify_scene_object_service_ = context_->moveit_cpp_->getNode()->create_service<aivot_msgs::srv::ModifySceneObject>(
-        "modify_scene_object", [this](const std::shared_ptr<rmw_request_id_t>& request_header,
+        "modify_scene_object", [this, node](const std::shared_ptr<rmw_request_id_t>& request_header,
                                       const std::shared_ptr<aivot_msgs::srv::ModifySceneObject::Request>& req,
                                       const std::shared_ptr<aivot_msgs::srv::ModifySceneObject::Response>& res) {
         // Modify scene object service logic
@@ -242,38 +242,55 @@ void MoveGroupManipulationAgentService::initialize()
         for (int i = 0; i < 16; ++i) {
             rowmajor[i] = oc.affine[i];
         }
-        // Translation = elements [3], [7], [11]
-        double tx = rowmajor[3];
-        double ty = rowmajor[7];
-        double tz = rowmajor[11];
+        Eigen::Isometry3d world_T_obj;
+        world_T_obj.linear() = Eigen::Matrix3d{
+            {rowmajor[0], rowmajor[1], rowmajor[2]},
+            {rowmajor[4], rowmajor[5], rowmajor[6]},
+            {rowmajor[8], rowmajor[9], rowmajor[10]}
+        };
+        world_T_obj.translation() = Eigen::Vector3d{rowmajor[3], rowmajor[7], rowmajor[11]};
 
-        // Rotation‐matrix = [ 0,1,2; 4,5,6; 8,9,10 ] in row‐major form
-        tf2::Matrix3x3 R(
-        rowmajor[0], rowmajor[1], rowmajor[2],
-        rowmajor[4], rowmajor[5], rowmajor[6],
-        rowmajor[8], rowmajor[9], rowmajor[10]);
-        tf2::Quaternion q;
-        R.getRotation(q);
+        // Retrieve attachment frame from params (loaded from object_attachment_params.yaml)
+        std::string attachment_frame;
+        auto node_local = context_->moveit_cpp_->getNode();
+        if (!node_local->get_parameter("object_attachment_gripper_frame_name", attachment_frame)) {
+            // fallback: infer from arm name
+            attachment_frame = HasSubStrI(req->new_arm, "left") ? "LEFTgripper_tcp" : "RIGHTgripper_tcp";
+            RCLCPP_WARN(LOGGER, "Parameter object_attachment_gripper_frame_name not set, using %s", attachment_frame.c_str());
+        }
 
-        marker.pose.position.x = tx;
-        marker.pose.position.y = ty;
-        marker.pose.position.z = tz;
-        marker.pose.orientation.x = q.x();
-        marker.pose.orientation.y = q.y();
-        marker.pose.orientation.z = q.z();
-        marker.pose.orientation.w = q.w();
+        Eigen::Isometry3d gripper_T_obj = world_T_obj;
+        {
+            planning_scene_monitor::LockedPlanningSceneRO scene(context_->planning_scene_monitor_);
+            const moveit::core::RobotState& state = scene->getCurrentState();
+            if (state.getRobotModel()->hasLinkModel(attachment_frame)) {
+                Eigen::Isometry3d world_T_gripper = state.getGlobalLinkTransform(attachment_frame);
+                gripper_T_obj = world_T_gripper.inverse() * world_T_obj;
+            } else {
+                RCLCPP_WARN(LOGGER, "Attachment frame %s not found in robot model, using world pose", attachment_frame.c_str());
+            }
+        }
 
-        // Scale from cuboid dims 
-        marker.scale.x = oc.cuboid[3];
-        marker.scale.y = oc.cuboid[4];
-        marker.scale.z = oc.cuboid[5];
+        geometry_msgs::msg::Pose pose_msg;
+        pose_msg.position.x = gripper_T_obj.translation().x();
+        pose_msg.position.y = gripper_T_obj.translation().y();
+        pose_msg.position.z = gripper_T_obj.translation().z();
+        Eigen::Quaterniond q(gripper_T_obj.linear());
+        q.normalize();
+        pose_msg.orientation.x = q.x();
+        pose_msg.orientation.y = q.y();
+        pose_msg.orientation.z = q.z();
+        pose_msg.orientation.w = q.w();
+        marker.pose = pose_msg;
+
+        // Scale from cuboid dims (max - min per axis)
+        marker.scale.x = oc.cuboid[3] - oc.cuboid[0];
+        marker.scale.y = oc.cuboid[4] - oc.cuboid[1];
+        marker.scale.z = oc.cuboid[5] - oc.cuboid[2];
 
         goal.object_config = marker;
         // Compute the inscribed‐sphere radius = ½ × (smallest cuboid dimension)
-        double size_x = oc.cuboid[3];
-        double size_y = oc.cuboid[4];
-        double size_z = oc.cuboid[5];
-        double min_edge = std::min({size_x, size_y, size_z});
+        double min_edge = std::min({ marker.scale.x, marker.scale.y, marker.scale.z });
         goal.fallback_radius = min_edge * 0.5;
 
         // TODO (sergio): Add logic to select the action server based on the arm index
