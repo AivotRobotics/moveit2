@@ -41,6 +41,7 @@
 #include <aivot_msgs/srv/get_arm_pose.hpp>
 #include <aivot_msgs/srv/get_gripper_position.hpp>
 #include <aivot_msgs/srv/modify_scene_object.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp/callback_group.hpp>
 #include <isaac_ros_cumotion_interfaces/action/attach_object.hpp>
@@ -64,7 +65,8 @@ private:
   std::string StrLowerCase (const std::string & value);
   bool HasSubStrI (const std::string & value, const std::string & query);
   int ArmIdx (const std::string & name);
-
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr gz_attach_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr gz_detach_pub_;
   rclcpp::Service<aivot_msgs::srv::GetArmPosition>::SharedPtr get_arm_position_service_;
   rclcpp::Service<aivot_msgs::srv::GetArmPose>::SharedPtr get_arm_pose_service_;
   rclcpp::Service<aivot_msgs::srv::GetGripperPosition>::SharedPtr get_gripper_position_service_;
