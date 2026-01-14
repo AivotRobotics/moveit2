@@ -69,10 +69,18 @@ void MoveGroupManipulationAgentService::initialize()
     auto node = context_->moveit_cpp_->getNode();
     callback_group_action_client_ = node->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
+
+    // Gazebo
+    gz_attach_pub_ = node->create_publisher<std_msgs::msg::Empty>(
+        "/gz/attach_box1", rclcpp::QoS(1));
+
+    gz_detach_pub_ = node->create_publisher<std_msgs::msg::Empty>(
+        "/gz/detach_box1", rclcpp::QoS(1));
+
     attach_object_action_client_ = rclcpp_action::create_client<isaac_ros_cumotion_interfaces::action::AttachObject>(
         node, "/attach_object", callback_group_action_client_);
 
-  get_arm_position_service_ = context_->moveit_cpp_->getNode()->create_service<aivot_msgs::srv::GetArmPosition>(
+    get_arm_position_service_ = context_->moveit_cpp_->getNode()->create_service<aivot_msgs::srv::GetArmPosition>(
       "get_arm_position", [this](const std::shared_ptr<rmw_request_id_t>& request_header,
                                  const std::shared_ptr<aivot_msgs::srv::GetArmPosition::Request>& req,
                                  const std::shared_ptr<aivot_msgs::srv::GetArmPosition::Response>& res) {
@@ -348,17 +356,24 @@ void MoveGroupManipulationAgentService::initialize()
             RCLCPP_ERROR(LOGGER, "Object Attachment goal execution time out...");
             return;
         }
+        
+        auto pub_empty = [](auto & pub) {
+            std_msgs::msg::Empty msg;
+            pub->publish(msg);
+        };
 
         // The final result
         auto result = future_result.get();
         
         if (result.result->outcome.find("attached") != std::string::npos)
         {
+            pub_empty(gz_attach_pub_);
             RCLCPP_INFO(LOGGER, "Object '%s' attached successfully to arm '%s'", req->object_id.name.c_str(), req->new_arm.c_str());
             res->error_info.description = result.result->outcome;
         }
         else if (result.result->outcome.find("Detached") != std::string::npos)
         {
+            pub_empty(gz_detach_pub_);
             RCLCPP_INFO(LOGGER, "Object '%s' detached successfully from arm '%s'", req->object_id.name.c_str(), req->prev_arm.c_str());
             res->error_info.description = result.result->outcome;
         }
